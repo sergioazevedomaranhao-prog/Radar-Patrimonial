@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viabilidade de Arremate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Plano: ferramenta de duas colunas — entradas à esquerda, veredito e números à direita; faixa escura do "Radar" no topo. */
+:root{
+  --bg:#f3f6f4; --surface:#ffffff; --ink:#14201b; --muted:#5b6b64; --line:#d9e2dd;
+  --brand:#14213d; --accent:#1f7a4d; --accent-soft:#e3f1e9;
+  --good:#1f7a4d; --warn:#b7791f; --bad:#c0392b;
+  --good-bg:#e3f1e9; --warn-bg:#fbf1dc; --bad-bg:#fbe5e2;
+  --font-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1513; --surface:#17201c; --ink:#e6eeea; --muted:#9aaba3; --line:#2a3631;
+    --brand:#0b1426; --accent:#3fb37a; --accent-soft:#183326;
+    --good:#4cc38a; --warn:#e0a944; --bad:#ef6b5b;
+    --good-bg:#183326; --warn-bg:#33281a; --bad-bg:#3a1f1c;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --surface:#17201c; --ink:#e6eeea; --muted:#9aaba3; --line:#2a3631;
+  --brand:#0b1426; --accent:#3fb37a; --accent-soft:#183326;
+  --good:#4cc38a; --warn:#e0a944; --bad:#ef6b5b;
+  --good-bg:#183326; --warn-bg:#33281a; --bad-bg:#3a1f1c;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45}
+.top{background:var(--brand);color:#fff;padding:18px 20px}
+.top .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;justify-content:space-between}
+.top h1{font-family:var(--font-display);font-size:26px;margin:0;letter-spacing:.2px;text-wrap:balance}
+.top p{margin:0;color:#c9d3e6;font-size:14px;max-width:62ch}
+.wrap{max-width:1240px;margin:0 auto}
+main.wrap{padding:20px 16px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+@media (max-width:900px){main.wrap{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.inputs{display:grid;gap:14px}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:12px 14px 14px;margin:0;background:var(--surface)}
+legend{font-family:var(--font-display);font-weight:700;font-size:15px;padding:0 6px;color:var(--accent);text-transform:uppercase;letter-spacing:.6px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:480px){.grid,.grid.three{grid-template-columns:1fr}}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+label.full{grid-column:1/-1}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;font-family:var(--font-num);font-size:14px}
+select,input[type=text]{font-family:var(--font-body)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.check{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px}
+.check input{width:auto}
+.results{display:grid;gap:14px;position:sticky;top:12px}
+@media (max-width:900px){.results{position:static}}
+.verdict{border-radius:10px;padding:16px;border:1px solid var(--line);display:grid;gap:10px}
+.verdict.good{background:var(--good-bg);border-color:var(--good)}
+.verdict.warn{background:var(--warn-bg);border-color:var(--warn)}
+.verdict.bad{background:var(--bad-bg);border-color:var(--bad)}
+.pill{display:inline-block;font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase;padding:3px 10px;border-radius:999px;color:#fff}
+.good .pill{background:var(--good)} .warn .pill{background:var(--warn)} .bad .pill{background:var(--bad)}
+.verdict h2{margin:0;font-family:var(--font-display);font-size:22px;text-wrap:balance}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi b{display:block;font-family:var(--font-num);font-size:19px;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi.hl{border-color:var(--accent)}
+h3{font-family:var(--font-display);font-size:16px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+td.n,th.n{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+tr.total td{font-weight:600;border-top:2px solid var(--ink);border-bottom:none}
+tr.sub td{color:var(--muted)}
+.scen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.scen .kpi b{font-size:16px}
+.scroll{overflow-x:auto}
+.sens td,.sens th{text-align:center;font-family:var(--font-num);font-size:13px;padding:6px}
+.sens th{color:var(--muted);font-weight:500}
+.sens td.cur{outline:2px solid var(--ink);outline-offset:-2px}
+.c-good{background:var(--good-bg);color:var(--good)} .c-warn{background:var(--warn-bg);color:var(--warn)} .c-bad{background:var(--bad-bg);color:var(--bad)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-weight:600;border-radius:7px;padding:8px 14px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+.saved{display:grid;gap:6px;margin-top:8px}
+.saved .item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:14px}
+.saved .item b{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.saved .item button{padding:4px 10px;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin:0}
+.badge{font-family:var(--font-num);font-size:13px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>Viabilidade de Arremate</h1>
+    <p>Quanto sobra no bolso depois de todos os custos, e qual o lance máximo que ainda dá o retorno que você quer.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <form class="inputs" id="f" autocomplete="off">
+    <fieldset>
+      <legend>Imóvel</legend>
+      <div class="grid">
+        <label class="full" for="nome">Identificação
+          <input type="text" id="nome" value="Exemplo — Apto Fontana di Trevi, Umarizal (Caixa)">
+        </label>
+        <label for="area">Área privativa (m²)<input id="area" type="number" step="0.01" value="261.57"></label>
+        <label for="aval">Avaliação da fonte (R$)<input id="aval" type="number" step="0.01" value="1481000"></label>
+        <label for="lance">Lance / valor de compra (R$)<input id="lance" type="number" step="0.01" value="943862.48"></label>
+        <label for="ocupado" class="check" style="align-self:end"><input id="ocupado" type="checkbox"> Imóvel ocupado</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Preço de revenda</legend>
+      <div class="grid">
+        <label for="rpm">R$/m² de venda no bairro<input id="rpm" type="number" step="1" value="5662"></label>
+        <label for="negoc">Desconto na negociação (%)<input id="negoc" type="number" step="0.1" value="5"></label>
+        <label class="full" for="override">Ou informe o preço de revenda direto (R$) — deixe 0 para usar o R$/m²
+          <input id="override" type="number" step="1" value="0">
+        </label>
+      </div>
+      <p class="hint">No exemplo, o R$/m² é o da própria avaliação da Caixa (R$ 1.481.000 ÷ 261,57 m²). Troque pelo valor real de anúncios e vendas do bairro.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Custos de compra</legend>
+      <div class="grid three">
+        <label for="comissao">Comissão leiloeiro (%)<input id="comissao" type="number" step="0.1" value="5"></label>
+        <label for="itbi">ITBI (%)<input id="itbi" type="number" step="0.1" value="2"></label>
+        <label for="registro">Escritura + registro (%)<input id="registro" type="number" step="0.1" value="1.5"></label>
+        <label for="dividas">Dívidas assumidas (R$)<input id="dividas" type="number" step="1" value="0"></label>
+        <label for="juridico">Advogado / assessoria (R$)<input id="juridico" type="number" step="1" value="5000"></label>
+        <label for="desoc">Desocupação (R$)<input id="desoc" type="number" step="1" value="15000"></label>
+      </div>
+      <p class="hint">Confira a alíquota de ITBI da prefeitura e quem paga condomínio e IPTU atrasados no edital (na Caixa, o comprador paga até 10% da avaliação). A desocupação só entra se o imóvel estiver ocupado.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Reforma</legend>
+      <div class="grid">
+        <label for="padrao">Padrão
+          <select id="padrao">
+            <option value="0">Nenhuma</option>
+            <option value="400">Leve (pintura, reparos) — R$ 400/m²</option>
+            <option value="900" selected>Média (pisos, banheiros) — R$ 900/m²</option>
+            <option value="1600">Pesada (completa) — R$ 1.600/m²</option>
+            <option value="custom">Valor próprio</option>
+          </select>
+        </label>
+        <label for="reformaM2">Custo por m² (R$)<input id="reformaM2" type="number" step="1" value="900"></label>
+      </div>
+      <p class="hint">Valores de referência para começar. Ajuste com orçamento real ou com a média das suas obras.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Prazo e custos mensais</legend>
+      <div class="grid three">
+        <label for="meses">Meses até vender<input id="meses" type="number" step="1" value="8"></label>
+        <label for="mesesDesoc">Meses a mais se ocupado<input id="mesesDesoc" type="number" step="1" value="6"></label>
+        <label for="condo">Condomínio / mês (R$)<input id="condo" type="number" step="1" value="1800"></label>
+        <label for="iptu">IPTU / mês (R$)<input id="iptu" type="number" step="1" value="350"></label>
+        <label for="outros">Luz, água, outros / mês<input id="outros" type="number" step="1" value="150"></label>
+        <label for="cdi">CDI ao ano (%)<input id="cdi" type="number" step="0.1" value="14"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Venda e impostos</legend>
+      <div class="grid">
+        <label for="corretagem">Corretagem na venda (%)<input id="corretagem" type="number" step="0.1" value="6"></label>
+        <label for="regime">Como você compra
+          <select id="regime">
+            <option value="pf" selected>Pessoa física — 15% sobre o ganho</option>
+            <option value="pj">Empresa no lucro presumido — 6,73% da venda</option>
+            <option value="nenhum">Não calcular imposto</option>
+          </select>
+        </label>
+        <label for="alvo">Retorno mínimo desejado (% no período)<input id="alvo" type="number" step="0.5" value="20"></label>
+      </div>
+      <p class="hint">Impostos simplificados para triagem. Confirme o regime certo com seu contador antes do lance.</p>
+    </fieldset>
+  </form>
+
+  <section class="results" aria-live="polite">
+    <div class="verdict" id="verdict">
+      <div class="row"><span class="pill" id="pill">—</span><span class="badge" id="nomeOut"></span></div>
+      <h2 id="headline">—</h2>
+      <div class="kpis">
+        <div class="kpi hl"><span>Lucro líquido</span><b id="kLucro">—</b></div>
+        <div class="kpi hl"><span>Retorno no período</span><b id="kRoi">—</b></div>
+        <div class="kpi hl"><span>Lance máximo p/ meta</span><b id="kMax">—</b></div>
+        <div class="kpi"><span>Retorno ao ano</span><b id="kRoiAno">—</b></div>
+        <div class="kpi"><span>Dinheiro investido</span><b id="kInv">—</b></div>
+        <div class="kpi"><span>Prazo total</span><b id="kPrazo">—</b></div>
+        <div class="kpi"><span>Compra em R$/m²</span><b id="kCompraM2">—</b></div>
+        <div class="kpi"><span>Abaixo do bairro</span><b id="kAbaixo">—</b></div>
+        <div class="kpi"><span>Venda pode cair até</span><b id="kSeg">—</b></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Para onde vai o dinheiro</h3>
+      <table id="tabela"></table>
+    </div>
+
+    <div class="panel">
+      <h3>Cenários</h3>
+      <div class="scen" id="scen"></div>
+      <p class="note" style="margin-top:8px">Pessimista: venda 10% menor, reforma 30% mais cara, 3 meses a mais. Otimista: venda 5% maior, reforma 10% mais barata, 1 mês a menos.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Retorno conforme lance e preço de venda</h3>
+      <div class="scroll"><table class="sens" id="sens"></table></div>
+      <p class="note" style="margin-top:8px">Linhas: seu lance. Colunas: R$/m² de venda. A célula com borda é o cenário atual.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Análises salvas</h3>
+      <div class="row">
+        <button type="button" id="salvar">Salvar esta análise</button>
+        <button type="button" class="ghost" id="copiar">Copiar resumo</button>
+        <span class="note" id="msg"></span>
+      </div>
+      <div class="saved" id="saved"></div>
+      <p class="note" style="margin-top:8px">Ficam guardadas só neste navegador.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const ids = ["nome","area","aval","lance","ocupado","rpm","negoc","override","comissao","itbi","registro","dividas","juridico","desoc","padrao","reformaM2","meses","mesesDesoc","condo","iptu","outros","cdi","corretagem","regime","alvo"];
+const brl = v => isFinite(v) ? v.toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}) : "—";
+const pct = v => isFinite(v) ? (v*100).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%" : "—";
+const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? v : 0; };
+
+function read(){
+  return {
+    nome:$("nome").value, area:num("area"), aval:num("aval"), lance:num("lance"), ocupado:$("ocupado").checked,
+    rpm:num("rpm"), negoc:num("negoc")/100, override:num("override"),
+    comissao:num("comissao")/100, itbi:num("itbi")/100, registro:num("registro")/100,
+    dividas:num("dividas"), juridico:num("juridico"), desoc:num("desoc"), reformaM2:num("reformaM2"),
+    meses:num("meses"), mesesDesoc:num("mesesDesoc"), condo:num("condo"), iptu:num("iptu"), outros:num("outros"),
+    cdi:num("cdi")/100, corretagem:num("corretagem")/100, regime:$("regime").value, alvo:num("alvo")/100
+  };
+}
+
+// Função pura: todo o cálculo de um arremate.
+function calc(p, o={}){
+  const lance = o.lance ?? p.lance;
+  const rpm = (o.rpm ?? p.rpm);
+  const reformaMult = o.reformaMult ?? 1;
+  const vendaMult = o.vendaMult ?? 1;
+  const mesesExtra = o.mesesExtra ?? 0;
+  const vendaBase = p.override > 0 && o.rpm === undefined ? p.override : p.area * rpm * (1 - p.negoc);
+  const venda = vendaBase * vendaMult;
+  const comissao = lance * p.comissao;
+  const itbi = lance * p.itbi;
+  const registro = lance * p.registro;
+  const desoc = p.ocupado ? p.desoc : 0;
+  const reforma = p.area * p.reformaM2 * reformaMult;
+  const meses = Math.max(1, p.meses + (p.ocupado ? p.mesesDesoc : 0) + mesesExtra);
+  const manutencao = meses * (p.condo + p.iptu + p.outros);
+  const corretagem = venda * p.corretagem;
+  const investido = lance + comissao + itbi + registro + p.dividas + p.juridico + desoc + reforma + manutencao;
+  const lair = venda - corretagem - investido;
+  let imposto = 0;
+  if (p.regime === "pf") imposto = Math.max(0, lair) * 0.15;
+  else if (p.regime === "pj") imposto = venda * 0.0673;
+  const lucro = lair - imposto;
+  const roi = investido > 0 ? lucro / investido : NaN;
+  const roiAno = isFinite(roi) && roi > -1 ? Math.pow(1 + roi, 12 / meses) - 1 : NaN;
+  const cdiPeriodo = (Math.pow(1 + p.cdi, meses / 12) - 1) * 0.85; // CDI líquido de IR aproximado
+  return {venda, vendaBase, comissao, itbi, registro, desoc, reforma, manutencao, meses, corretagem, investido, lair, imposto, lucro, roi, roiAno, cdiPeriodo, lance};
+}
+
+// Maior lance que ainda entrega o retorno alvo (busca binária).
+function lanceMaximo(p){
+  let lo = 0, hi = Math.max(p.lance, p.aval, calc(p).venda) * 1.5;
+  if (calc(p,{lance:0}).roi < p.alvo) return NaN;
+  for (let i=0;i<60;i++){ const mid=(lo+hi)/2; if (calc(p,{lance:mid}).roi >= p.alvo) lo=mid; else hi=mid; }
+  return lo;
+}
+// Quanto o preço de venda pode cair até o lucro zerar.
+function margemSeguranca(p){
+  const base = calc(p);
+  if (base.lucro <= 0) return 0;
+  let lo = 0, hi = 1;
+  for (let i=0;i<50;i++){ const mid=(lo+hi)/2; if (calc(p,{vendaMult:1-mid}).lucro > 0) lo=mid; else hi=mid; }
+  return lo;
+}
+const cls = (roi, alvo) => !isFinite(roi) ? "bad" : roi >= alvo ? "good" : roi >= alvo/2 && roi > 0 ? "warn" : "bad";
+
+function render(){
+  const p = read();
+  const r = calc(p);
+  const max = lanceMaximo(p);
+  const seg = margemSeguranca(p);
+  const c = cls(r.roi, p.alvo);
+  const v = $("verdict"); v.className = "verdict " + c;
+  $("pill").textContent = {good:"Vale analisar",warn:"No limite",bad:"Não compensa"}[c];
+  $("nomeOut").textContent = p.nome;
+  const diffCdi = r.roi - r.cdiPeriodo;
+  $("headline").textContent = c === "good"
+    ? `Sobra ${brl(r.lucro)} em ${r.meses} meses — ${pct(diffCdi)} acima do CDI no mesmo prazo.`
+    : c === "warn"
+      ? `Dá lucro, mas abaixo da sua meta de ${pct(p.alvo)}. Para chegar lá, o lance teria que ser até ${brl(max)}.`
+      : (isFinite(max) ? `Com esse lance não fecha. O máximo para a meta de ${pct(p.alvo)} é ${brl(max)}.` : `Mesmo de graça não atinge a meta: revise o preço de venda e os custos.`);
+  $("kLucro").textContent = brl(r.lucro);
+  $("kRoi").textContent = pct(r.roi);
+  $("kMax").textContent = brl(max);
+  $("kRoiAno").textContent = pct(r.roiAno);
+  $("kInv").textContent = brl(r.investido);
+  $("kPrazo").textContent = r.meses + " meses";
+  const compraM2 = p.area > 0 ? r.lance / p.area : NaN;
+  $("kCompraM2").textContent = brl(compraM2);
+  $("kAbaixo").textContent = p.rpm > 0 ? pct(1 - compraM2 / p.rpm) : "—";
+  $("kSeg").textContent = pct(seg);
+
+  const rows = [
+    ["Lance", r.lance], ["Comissão do leiloeiro", r.comissao], ["ITBI", r.itbi], ["Escritura e registro", r.registro],
+    ["Dívidas assumidas", p.dividas], ["Advogado / assessoria", p.juridico], ["Desocupação", r.desoc],
+    ["Reforma", r.reforma], [`Condomínio, IPTU e contas (${r.meses} meses)`, r.manutencao]
+  ];
+  $("tabela").innerHTML =
+    rows.map(([k,val]) => `<tr><td>${k}</td><td class="n">${brl(val)}</td></tr>`).join("") +
+    `<tr class="total"><td>Total investido</td><td class="n">${brl(r.investido)}</td></tr>` +
+    `<tr><td>Venda estimada</td><td class="n">${brl(r.venda)}</td></tr>` +
+    `<tr class="sub"><td>− Corretagem</td><td class="n">${brl(r.corretagem)}</td></tr>` +
+    `<tr class="sub"><td>− Imposto</td><td class="n">${brl(r.imposto)}</td></tr>` +
+    `<tr class="total"><td>Lucro líquido</td><td class="n">${brl(r.lucro)}</td></tr>`;
+
+  const sc = [["Pessimista",{vendaMult:.9,reformaMult:1.3,mesesExtra:3}],["Realista",{}],["Otimista",{vendaMult:1.05,reformaMult:.9,mesesExtra:-1}]];
+  $("scen").innerHTML = sc.map(([n,o]) => { const s = calc(p,o); const k = cls(s.roi,p.alvo);
+    return `<div class="kpi c-${k}"><span>${n}</span><b>${brl(s.lucro)}</b><span>${pct(s.roi)} em ${s.meses} meses</span></div>`; }).join("");
+
+  const lm = [.9,.95,1,1.05,1.1], vm = [.85,.925,1,1.075,1.15];
+  const baseRpm = p.override > 0 && p.area > 0 ? p.override / (p.area*(1-p.negoc)) : p.rpm;
+  let h = `<tr><th>Lance \\ R$/m²</th>${vm.map(m=>`<th>${Math.round(baseRpm*m).toLocaleString("pt-BR")}</th>`).join("")}</tr>`;
+  for (const a of lm){
+    h += `<tr><th>${brl(p.lance*a)}</th>` + vm.map(b => { const s = calc(p,{lance:p.lance*a, rpm:baseRpm*b}); const k = cls(s.roi,p.alvo);
+      return `<td class="c-${k}${a===1&&b===1?" cur":""}">${pct(s.roi)}</td>`; }).join("") + `</tr>`;
+  }
+  $("sens").innerHTML = h;
+  window.__last = {p, r, max};
+}
+
+$("padrao").addEventListener("change", e => { if (e.target.value !== "custom") $("reformaM2").value = e.target.value; render(); });
+$("reformaM2").addEventListener("input", () => { $("padrao").value = "custom"; });
+$("f").addEventListener("input", render);
+$("f").addEventListener("submit", e => e.preventDefault());
+
+// Análises salvas (só neste navegador)
+const KEY = "viabilidade-arremate-v1";
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; } };
+const store = list => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch(e){ return false; } };
+function renderSaved(){
+  const list = load();
+  $("saved").innerHTML = list.length ? list.map((s,i)=>`<div class="item"><span>${s.vals.nome.replace(/</g,"&lt;")}</span><span><b>${brl(s.lucro)}</b> · ${pct(s.roi)}</span><span class="row"><button type="button" class="ghost" data-open="${i}">Abrir</button><button type="button" class="ghost" data-del="${i}">Apagar</button></span></div>`).join("") : `<p class="note">Nenhuma análise salva ainda.</p>`;
+}
+$("salvar").addEventListener("click", () => {
+  const vals = {}; ids.forEach(id => vals[id] = $(id).type === "checkbox" ? $(id).checked : $(id).value);
+  const list = load(); list.unshift({vals, lucro: window.__last.r.lucro, roi: window.__last.r.roi});
+  $("msg").textContent = store(list.slice(0,30)) ? "Salva." : "Este navegador não permitiu salvar.";
+  renderSaved();
+});
+$("saved").addEventListener("click", e => {
+  const o = e.target.dataset.open, d = e.target.dataset.del, list = load();
+  if (o !== undefined){ const v = list[o].vals; ids.forEach(id => { if ($(id).type==="checkbox") $(id).checked = v[id]; else $(id).value = v[id]; }); render(); window.scrollTo({top:0}); }
+  if (d !== undefined){ list.splice(d,1); store(list); renderSaved(); }
+});
+$("copiar").addEventListener("click", async () => {
+  const {p,r,max} = window.__last;
+  const t = `${p.nome}\nLance: ${brl(r.lance)} | Venda estimada: ${brl(r.venda)}\nInvestido: ${brl(r.investido)} | Lucro líquido: ${brl(r.lucro)}\nRetorno: ${pct(r.roi)} em ${r.meses} meses (${pct(r.roiAno)} ao ano)\nLance máximo para ${pct(p.alvo)}: ${brl(max)}`;
+  try { await navigator.clipboard.writeText(t); $("msg").textContent = "Resumo copiado."; } catch(e){ $("msg").textContent = "Não foi possível copiar aqui."; }
+});
+render(); renderSaved();
+</script>
+</body>
+</html>
