@@ -1,5 +1,7 @@
 """Coletor da Caixa: lista oficial de imóveis por UF (CSV)."""
 import re
+import datetime
+from pathlib import Path
 import requests
 from ..modelo import Anuncio, numero_br, area, tipo_padrao
 from ..escopo import no_escopo
@@ -42,8 +44,34 @@ def parse(texto: str):
             financiamento=(fin.lower().startswith("s")) if fin else None,
         )
 
+ENTRADA = Path(__file__).resolve().parents[2] / "entrada" / "caixa"
+MAX_DIAS = 3
+
+def data_geracao(texto: str):
+    m = re.search(r"Data de gera\S*:;\s*(\d{2})/(\d{2})/(\d{4})", texto[:600])
+    return datetime.date(int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+
+def da_entrada(uf: str) -> str:
+    """Lista entregue pelo Grokbot (baixada no Mac do Sergio, pela internet de casa)."""
+    f = ENTRADA / f"Lista_imoveis_{uf}.csv"
+    if not f.exists():
+        raise RuntimeError(f"Sem lista da Caixa para {uf}: o site bloqueou e não há arquivo em entrada/caixa/")
+    texto = f.read_bytes().decode("latin-1")
+    d = data_geracao(texto)
+    if d is None or (datetime.date.today() - d).days > MAX_DIAS:
+        raise RuntimeError(f"Lista da Caixa {uf} em entrada/ está velha (gerada em {d}); o Grokbot não enviou a de hoje")
+    print(f"caixa {uf}: usando lista entregue pelo Grokbot, gerada em {d:%d/%m/%Y}")
+    return texto
+
+def obter(uf: str) -> str:
+    try:
+        return baixar(uf)
+    except Exception as e:
+        print(f"caixa {uf}: download direto falhou ({str(e)[:80]}); tentando entrada/caixa/")
+        return da_entrada(uf)
+
 def coletar(ufs=("PA", "MA")):
     for uf in ufs:
-        for a in parse(baixar(uf)):
+        for a in parse(obter(uf)):
             if no_escopo(a.uf, a.cidade, a.tipo):
                 yield a

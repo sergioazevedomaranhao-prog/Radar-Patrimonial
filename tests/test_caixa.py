@@ -17,3 +17,8 @@ def test_parse():
     assert a.area_total is None and a.area_privativa == 120.0 and a.quartos == 2
     assert a.financiamento is False and b.financiamento is True
     assert b.area_total == 161.30 and b.area_terreno == 274.75
+
+def test_data_geracao():
+    import datetime
+    from coletor.fontes.caixa import data_geracao
+    assert data_geracao(AMOSTRA) == datetime.date(2026, 11, 13)
