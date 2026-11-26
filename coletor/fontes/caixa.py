@@ -14,7 +14,11 @@ HEADERS = {
 def baixar(uf: str) -> str:
     r = requests.get(URL.format(uf=uf), headers=HEADERS, timeout=60)
     r.raise_for_status()
-    return r.content.decode("latin-1")
+    texto = r.content.decode("latin-1")
+    if "Lista de Im" not in texto[:500]:
+        raise RuntimeError(f"Caixa não devolveu a lista de {uf} (status {r.status_code}, "
+                           f"{len(texto)} bytes). Início: {texto[:300]!r}")
+    return texto
 
 def parse(texto: str):
     for linha in texto.splitlines():
